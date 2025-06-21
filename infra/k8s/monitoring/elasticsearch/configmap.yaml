@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch-config
+  namespace: monitoring
+data:
+  elasticsearch.yml: |
+    cluster.name: monitoring-logs
+    node.name: elasticsearch-single
+    node.roles: [master, data, ingest]
+    path.data: /usr/share/elasticsearch/data
+    path.logs: /usr/share/elasticsearch/logs
+    network.host: 0.0.0.0
+    http.port: 9200
+    
+    # 단일 노드 설정 (initial_master_nodes 제거)
+    discovery.type: single-node
+    
+    # 메모리 최적화 설정
+    bootstrap.memory_lock: false
+    indices.memory.index_buffer_size: 10%
+    indices.fielddata.cache.size: 20%
+    indices.queries.cache.size: 10%
+    
+    # X-Pack 설정 (deprecated 경고 제거)
+    xpack.security.enabled: false
+    xpack.ml.enabled: false
+    xpack.watcher.enabled: false
+    xpack.graph.enabled: false
+    
+    # 성능 최적화
+    action.auto_create_index: true
+    cluster.routing.allocation.disk.threshold_enabled: false
+    thread_pool.write.queue_size: 200
+    thread_pool.search.queue_size: 500
+    
+    # 로그 레벨 최소화
+    logger.level: WARN

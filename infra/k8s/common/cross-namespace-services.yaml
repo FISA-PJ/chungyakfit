@@ -1,0 +1,75 @@
+# Airflow 네임스페이스의 Elasticsearch를 ml-backend에서 접근하기 위한 설정
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-external
+  namespace: ml-backend
+spec:
+  type: ExternalName
+  externalName: elasticsearch.airflow.svc.cluster.local
+  ports:
+  - port: 9200
+    targetPort: 9200
+    protocol: TCP
+
+---
+# NetworkPolicy - 네임스페이스 간 통신 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cross-namespace
+  namespace: ml-backend
+spec:
+  podSelector: {}  # 모든 파드에 적용
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: backend
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: airflow
+    ports:
+    - protocol: TCP
+      port: 9200
+  - to:  # DNS 해결을 위한 설정
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+
+---
+# Backend 네임스페이스에서 ML-Backend 접근 허용
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ml-backend-access
+  namespace: backend
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: ml-backend
+    ports:
+    - protocol: TCP
+      port: 80
+  - to:  # DNS
+    - namespaceSelector: {}
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
