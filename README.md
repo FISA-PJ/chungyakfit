@@ -128,29 +128,37 @@
 
 ## Front / Backend
 **Backend**
+
 <img src="https://img.shields.io/badge/java-007396?style=for-the-badge&logo=OpenJDK&logoColor=white"> <img src="https://img.shields.io/badge/Spring-6DB33F?style=for-the-badge&logo=Spring&logoColor=white"> <img src="https://img.shields.io/badge/springboot-6DB33F?style=for-the-badge&logo=springboot&logoColor=white"> 
 
 **Frontend**
+
 <img src="https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=HTML5&logoColor=white"> <img src="https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=CSS3&logoColor=white"> <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=JavaScript&logoColor=white">
 
 ## ML-Backend
 **Chatbot**
+
 <img src="https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=Flask&logoColor=white"> ![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white) ![RAG](https://img.shields.io/badge/RAG-FF6B6B?style=for-the-badge&logo=opensearch&logoColor=white) ![React Agent](https://img.shields.io/badge/React_Agent-61DAFB?style=for-the-badge&logo=react&logoColor=black) ![LangGraph](https://img.shields.io/badge/LangGraph-FF4B4B?style=for-the-badge&logo=neo4j&logoColor=white) ![Reranker](https://img.shields.io/badge/Reranker-4CAF50?style=for-the-badge&logo=elasticsearch&logoColor=white)
 
 **Data Preprocessing**
+
  ![Apache Airflow](https://img.shields.io/badge/Apache_Airflow-017CEE?style=for-the-badge&logo=apacheairflow&logoColor=white) ![OpenParser](https://img.shields.io/badge/OpenParser-FF8C00?style=for-the-badge&logo=json&logoColor=white) ![Upstage](https://img.shields.io/badge/Upstage-6B73FF?style=for-the-badge&logo=tensorflow&logoColor=white) ![DataPipeline](https://img.shields.io/badge/Data_Pipeline-2E8B57?style=for-the-badge&logo=apache&logoColor=white)
 
 ## Infra
 **Monitoring**
+
 <img src="https://img.shields.io/badge/grafana-%23F46800.svg?style=for-the-badge&logo=grafana&logoColor=white"> <img src="https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=Prometheus&logoColor=white">  <img src="https://img.shields.io/badge/Elasticsearch-005571?style=for-the-badge&logo=Elasticsearch&logoColor=white">  <img src="https://img.shields.io/badge/Kibana-005571?style=for-the-badge&logo=Kibana&logoColor=white">  <img src="https://img.shields.io/badge/Fluentd-0E83C8?style=for-the-badge&logo=fluentd&logoColor=white">
 
 **CI/CD**
+
 ![Jenkins](https://img.shields.io/badge/Jenkins-D24939?style=for-the-badge&logo=jenkins&logoColor=white) ![Webhook](https://img.shields.io/badge/Webhook-2F3C4C?style=for-the-badge&logo=webhook&logoColor=white) ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white) ![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white) 
 
 **Container Orchestration**
+
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white) ![Amazon EKS](https://img.shields.io/badge/Amazon_EKS-FF9900?style=for-the-badge&logo=amazoneks&logoColor=white)
 
 **AWS Cloud Infrastructure**
+
 ![AWS](https://img.shields.io/badge/AWS-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white) ![Amazon EKS](https://img.shields.io/badge/Amazon_EKS-FF9900?style=for-the-badge&logo=amazoneks&logoColor=white) ![Route 53](https://img.shields.io/badge/Route_53-FF9900?style=for-the-badge&logo=amazonroute53&logoColor=white) ![Amazon VPC](https://img.shields.io/badge/Amazon_VPC-FF9900?style=for-the-badge&logo=amazonvpc&logoColor=white) ![AWS Bedrock](https://img.shields.io/badge/AWS_Bedrock-FF9900?style=for-the-badge&logo=amazonwebservices&logoColor=white) ![Internet Gateway](https://img.shields.io/badge/Internet_Gateway-FF9900?style=for-the-badge&logo=amazonwebservices&logoColor=white) ![NAT Gateway](https://img.shields.io/badge/NAT_Gateway-FF9900?style=for-the-badge&logo=amazonwebservices&logoColor=white)
 
 ---
