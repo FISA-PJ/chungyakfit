@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ko"
+      xmlns:th="http://www.thymeleaf.org"
+      layout:decorate="~{layout}" >
+
+<head>
+    <th:block layout:fragment="head">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    </th:block>
+</head>
+
+<body>
+<th:block layout:fragment="content">
+    <!-- 여기 지도 페이지 내용 작성 -->
+<!--    <div id="map" style="width:500px;height:400px;"></div>-->
+    <div id="map" style="height: 500px;"></div>
+</th:block>
+
+<th:block layout:fragment="script">
+    <script type="text/javascript" th:src="@{|//dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoApiKey}|}"></script>
+    <script>
+        var container = document.getElementById('map');
+        var options = {
+            center: new kakao.maps.LatLng(37.5551, 126.9707),
+            level: 7
+        };
+
+        var map = new kakao.maps.Map(container, options);
+    </script>
+</th:block>
+</body>
+</html>
