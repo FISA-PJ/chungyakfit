@@ -1,0 +1,49 @@
+# Backend ConfigMap - 수정된 버전
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: backend
+data:
+  SPRING_PROFILES_ACTIVE: "prod"
+  SPRING_DATASOURCE_URL: "jdbc:mysql://your-rds-endpoint.ap-northeast-2.rds.amazonaws.com:3306/backend_db?useSSL=true&serverTimezone=Asia/Seoul"
+  ML_BACKEND_URL: "http://ml-backend.ml-backend.svc.cluster.local"
+  ML_BACKEND_PORT: "80"
+  SERVER_PORT: "8080"
+  
+  # Actuator 설정을 환경변수로도 제공
+  MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "health,info,metrics,prometheus"
+  MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: "always"
+  MANAGEMENT_HEALTH_READINESSSTATE_ENABLED: "true"
+  MANAGEMENT_HEALTH_LIVENESSSTATE_ENABLED: "true"
+  
+  application.properties: |
+    # 로깅 설정
+    logging.level.root=INFO
+    logging.level.com.fisa=DEBUG
+    logging.level.org.springframework.boot.actuate=DEBUG
+    
+    # JPA 설정
+    spring.jpa.hibernate.ddl-auto=validate
+    spring.jpa.show-sql=false
+    spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQL8Dialect
+    
+    # 파일 업로드 설정
+    spring.servlet.multipart.max-file-size=10MB
+    spring.servlet.multipart.max-request-size=10MB
+    
+    # Jackson 설정
+    spring.jackson.time-zone=Asia/Seoul
+    
+    # Actuator 설정 - 더 명확하게
+    management.endpoints.web.exposure.include=health,info,metrics,prometheus
+    management.endpoint.health.show-details=always
+    management.endpoint.health.probes.enabled=true
+    management.health.readinessstate.enabled=true
+    management.health.livenessstate.enabled=true
+    management.server.port=8080
+    management.endpoints.web.base-path=/actuator
+    
+    # 헬스체크 관련 추가 설정
+    management.endpoint.health.group.readiness.include=readinessProbe,db
+    management.endpoint.health.group.liveness.include=livenessProbe

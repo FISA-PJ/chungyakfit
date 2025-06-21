@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch
+  namespace: monitoring
+  labels:
+    app: elasticsearch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      
+      initContainers:
+      - name: increase-vm-max-map
+        image: busybox
+        command: 
+        - sh
+        - -c
+        - "sysctl -w vm.max_map_count=262144 || echo 'vm.max_map_count setting failed, continuing'"
+        securityContext:
+          privileged: true
+          
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+        ports:
+        - containerPort: 9200
+          name: rest
+        - containerPort: 9300
+          name: inter-node
+          
+        env:
+        # 최소한의 JVM 설정
+        - name: ES_JAVA_OPTS
+          value: "-Xms256m -Xmx256m"
+        - name: discovery.type
+          value: "single-node"
+        - name: bootstrap.memory_lock
+          value: "false"
+        - name: LOG4J_FORMAT_MSG_NO_LOOKUPS
+          value: "true"
+          
+        volumeMounts:
+        - name: elasticsearch-config
+          mountPath: /usr/share/elasticsearch/config/elasticsearch.yml
+          subPath: elasticsearch.yml
+        - name: elasticsearch-data
+          mountPath: /usr/share/elasticsearch/data
+          
+        resources:
+          requests:
+            memory: "384Mi"    # 최소 메모리
+            cpu: "200m"        # 최소 CPU
+          limits:
+            memory: "512Mi"    # 타이트한 제한
+            cpu: "500m"        # 타이트한 CPU 제한
+            
+        # 관대한 헬스체크 설정
+        livenessProbe:
+          httpGet:
+            path: /_cluster/health?wait_for_status=yellow&timeout=30s
+            port: 9200
+          initialDelaySeconds: 180   # 3분 대기
+          timeoutSeconds: 30
+          periodSeconds: 60
+          failureThreshold: 8
+          
+        readinessProbe:
+          httpGet:
+            path: /_cluster/health?wait_for_status=yellow&timeout=30s
+            port: 9200
+          initialDelaySeconds: 90    # 1.5분 대기
+          timeoutSeconds: 30
+          periodSeconds: 30
+          failureThreshold: 15
+          
+      volumes:
+      - name: elasticsearch-config
+        configMap:
+          name: elasticsearch-config
+      - name: elasticsearch-data
+        emptyDir:
+          sizeLimit: 2Gi

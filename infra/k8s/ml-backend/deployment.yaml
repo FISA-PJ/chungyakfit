@@ -1,0 +1,85 @@
+# ML-Backend Deployment - Prometheus 메트릭 수집 어노테이션 추가
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-backend
+  namespace: ml-backend
+  labels:
+    app: ml-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-backend
+  template:
+    metadata:
+      labels:
+        app: ml-backend
+      # Prometheus 메트릭 수집 어노테이션 추가
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: ml-backend
+        image: jaerimw/ml-chatbot:fixed  # 실제 ML-backend 이미지로 변경
+        imagePullPolicy: IfNotPresent
+        
+        ports:
+        - containerPort: 8000
+          name: http
+          
+        # ConfigMap과 Secret에서 환경변수 가져오기
+        envFrom:
+        - configMapRef:
+            name: ml-backend-config
+        - secretRef:
+            name: ml-backend-secret
+        
+        # Prometheus 메트릭 활성화 환경변수 추가
+        env:
+        - name: ENABLE_METRICS
+          value: "true"
+        - name: METRICS_PORT
+          value: "8000"
+        - name: METRICS_PATH
+          value: "/metrics"
+            
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "500m"
+          limits:
+            memory: "8Gi"
+            cpu: "1000m"
+            
+        # 헬스체크 개선 (FastAPI/Flask 기준)
+        startupProbe:
+          httpGet:
+            path: /docs
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+          successThreshold: 1
+          
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 0
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+          
+        readinessProbe:
+          httpGet:
+            path: /docs  # ML-backend의 헬스체크 엔드포인트로 변경
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3

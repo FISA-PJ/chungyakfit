@@ -1,0 +1,487 @@
+pipeline {
+    agent any
+    
+    environment {
+        // Docker 이미지 설정 (ML-Backend 방식과 동일)
+        DOCKER_IMAGE = 'jaerimw/ai-agent-system'                 // Docker Hub 저장소명
+        DOCKERHUB_CREDENTIALS_ID = 'docker-hub'                  // Docker Hub 자격증명 ID
+        
+        // Kubernetes 설정 (기존 ML-Backend 설정 참고)
+        KUBECONFIG_CREDENTIALS_ID = 'kubeconfig'                 // Kubernetes config 자격증명 ID
+        NAMESPACE = 'ai-agent'                                   // AI Agent 전용 네임스페이스
+        DEPLOYMENT_NAME = 'ai-agent-system'                      // Kubernetes Deployment 이름
+        
+        // Secret 값들을 Jenkins Credentials에서 가져오기
+        OPENAI_API_KEY_ID = 'openai-api-key'                     // OpenAI API Key
+        DB_PASSWORD_ID = 'db-password'                           // DB 비밀번호
+        ES_HOST_ID = 'elasticsearch-host'                        // Elasticsearch 호스트
+        
+        // GitHub 설정
+        GITHUB_CREDENTIALS_ID = 'github-token'                   // GitHub 토큰
+        GITHUB_REPO = 'https://github.com/FISA-PJ/ai-agent-system.git'
+        GITHUB_BRANCH = 'main'
+        
+        // 애플리케이션 설정 (ML-Backend와 유사한 FastAPI 가정)
+        CONTAINER_PORT = '8000'                                  // FastAPI 기본 포트
+        SERVICE_PORT = '80'                                      // 서비스 포트
+        
+        // 빌드 설정
+        DOCKERFILE_PATH = 'Dockerfile'
+        BUILD_CONTEXT = '.'
+    }
+    
+    triggers {
+        githubPush()  // GitHub webhook 트리거
+    }
+    
+    stages {
+        stage('Checkout Source Code') {
+            steps {
+                script {
+                    echo "Checking out AI Agent System source code..."
+                    
+                    // GitHub에서 소스코드 체크아웃
+                    git branch: "${GITHUB_BRANCH}", 
+                        url: "${GITHUB_REPO}",
+                        credentialsId: "${GITHUB_CREDENTIALS_ID}"
+                    
+                    // 소스코드 구조 확인
+                    sh """
+                        echo "=== AI Agent System 프로젝트 구조 확인 ==="
+                        ls -la
+                        
+                        # Dockerfile 존재 확인
+                        if [ -f "${DOCKERFILE_PATH}" ]; then
+                            echo "✅ Dockerfile 발견: ${DOCKERFILE_PATH}"
+                        else
+                            echo "⚠️  Dockerfile이 없습니다: ${DOCKERFILE_PATH}"
+                        fi
+                        
+                        # K8s 매니페스트 확인
+                        if [ -d "k8s" ] || [ -d "kubernetes" ]; then
+                            echo "✅ Kubernetes manifests 발견"
+                            find . -name "*.yaml" -o -name "*.yml" | head -5
+                        fi
+                    """
+                }
+            }
+        }
+        
+
+        
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    echo "Building Docker image: ${DOCKER_IMAGE}:${BUILD_NUMBER}"
+                    
+                    sh """
+                        echo "=== AI Agent System Docker 빌드 시작 ==="
+                        echo "Build context: ${BUILD_CONTEXT}"
+                        echo "Dockerfile: ${DOCKERFILE_PATH}"
+                        
+                        # Docker 이미지 빌드
+                        docker build -f ${DOCKERFILE_PATH} -t ${DOCKER_IMAGE}:${BUILD_NUMBER} ${BUILD_CONTEXT}
+                        
+                        # latest 태그도 생성
+                        docker tag ${DOCKER_IMAGE}:${BUILD_NUMBER} ${DOCKER_IMAGE}:latest
+                        
+                        # 빌드된 이미지 확인
+                        docker images | grep ${DOCKER_IMAGE}
+                        
+                        # 이미지 크기 확인
+                        echo "=== 빌드된 이미지 정보 ==="
+                        docker inspect ${DOCKER_IMAGE}:${BUILD_NUMBER} --format='{{.Size}}' | numfmt --to=iec || echo "Size check failed"
+                    """
+                }
+            }
+        }
+        
+        stage('Push to DockerHub') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: "${DOCKERHUB_CREDENTIALS_ID}",
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    script {
+                        echo "Pushing Docker image to Docker Hub..."
+                        
+                        // Docker Hub 로그인
+                        sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+                        
+                        // 재시도 로직을 포함한 push
+                        def maxRetries = 3
+                        def pushSuccess = false
+                        
+                        for (int i = 0; i < maxRetries && !pushSuccess; i++) {
+                            try {
+                                echo "Docker push 시도 ${i + 1}/${maxRetries}..."
+                                
+                                // 빌드 번호 태그 push
+                                timeout(time: 15, unit: 'MINUTES') {
+                                    sh "docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}"
+                                }
+                                
+                                // latest 태그 push
+                                timeout(time: 15, unit: 'MINUTES') {
+                                    sh "docker push ${DOCKER_IMAGE}:latest"
+                                }
+                                
+                                pushSuccess = true
+                                echo "✅ Docker push 성공!"
+                                
+                            } catch (Exception e) {
+                                echo "❌ Push 시도 ${i + 1} 실패: ${e.getMessage()}"
+                                if (i < maxRetries - 1) {
+                                    echo "30초 대기 후 재시도..."
+                                    sleep(30)
+                                } else {
+                                    error("Docker push가 ${maxRetries}번 모두 실패했습니다.")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Update Kubernetes Manifests') {
+            steps {
+                script {
+                    echo "Updating Kubernetes deployment manifests..."
+                    
+                    sh """
+                        # k8s 디렉토리 확인 및 생성
+                        if [ -d "k8s" ] || [ -d "kubernetes" ]; then
+                            echo "✅ Kubernetes manifests directory found"
+                            
+                            # deployment.yaml에서 이미지 태그 업데이트
+                            find . -name "deployment.yaml" -o -name "*.yaml" | xargs grep -l "image:" | while read file; do
+                                echo "Updating image tag in: \$file"
+                                sed -i 's|image: ${DOCKER_IMAGE}:.*|image: ${DOCKER_IMAGE}:${BUILD_NUMBER}|g' "\$file"
+                            done
+                            
+                        else
+                            echo "⚠️ Kubernetes manifests directory not found"
+                            echo "Creating AI Agent System K8s manifests based on ML-Backend structure..."
+                            
+                            mkdir -p k8s
+                            
+                            # Namespace 생성
+                            cat > k8s/namespace.yaml << EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${NAMESPACE}
+EOF
+
+                            # ConfigMap 생성 (ML-Backend 구조 참고)
+                            cat > k8s/configmap.yaml << EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-agent-config
+  namespace: ${NAMESPACE}
+data:
+  # AI Agent 설정
+  APP_ENV: "production"
+  LOG_LEVEL: "INFO"
+  PORT: "${CONTAINER_PORT}"
+  PYTHONUNBUFFERED: "1"
+  
+  # OpenAI 설정 (API Key는 Secret에서)
+  OPENAI_MODEL: "gpt-4"
+  OPENAI_MAX_TOKENS: "4000"
+  
+  # 데이터베이스 설정 (ML-Backend와 동일, 비밀번호는 Secret에서)
+  DB_HOST: "database-1.c5mygaasq9hj.ap-northeast-2.rds.amazonaws.com"
+  DB_PORT: "3306"
+  DB_USER: "app_user"
+  APP_DB: "app_db"
+  
+  # Elasticsearch 설정은 Secret에서 가져옴
+EOF
+
+                            # Secret 생성 (Jenkins Credentials에서 값 가져오기)
+                            cat > k8s/secret.yaml << EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ai-agent-secret
+  namespace: ${NAMESPACE}
+type: Opaque
+stringData:
+  # stringData를 사용하면 base64 인코딩 자동 처리
+  OPENAI_API_KEY: "\${OPENAI_API_KEY}"
+  DB_PASSWORD: "\${DB_PASSWORD}"
+EOF
+
+                            # Deployment 생성 (ML-Backend 구조 기반)
+                            cat > k8s/deployment.yaml << EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${DEPLOYMENT_NAME}
+  namespace: ${NAMESPACE}
+  labels:
+    app: ${DEPLOYMENT_NAME}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ${DEPLOYMENT_NAME}
+  template:
+    metadata:
+      labels:
+        app: ${DEPLOYMENT_NAME}
+    spec:
+      containers:
+      - name: ${DEPLOYMENT_NAME}
+        image: ${DOCKER_IMAGE}:${BUILD_NUMBER}
+        imagePullPolicy: IfNotPresent
+        
+        ports:
+        - containerPort: ${CONTAINER_PORT}
+          name: http
+          
+        # ConfigMap과 Secret에서 환경변수 가져오기 (ML-Backend 방식)
+        envFrom:
+        - configMapRef:
+            name: ai-agent-config
+        - secretRef:
+            name: ai-agent-secret
+            
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "1000m"
+            
+        # 헬스체크 (FastAPI 기준)
+        readinessProbe:
+          httpGet:
+            path: /docs
+            port: ${CONTAINER_PORT}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: ${CONTAINER_PORT}
+          initialDelaySeconds: 60
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 3
+EOF
+
+                            # Service 생성 (ML-Backend 구조 기반)
+                            cat > k8s/service.yaml << EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${DEPLOYMENT_NAME}
+  namespace: ${NAMESPACE}
+  labels:
+    app: ${DEPLOYMENT_NAME}
+spec:
+  type: ClusterIP
+  selector:
+    app: ${DEPLOYMENT_NAME}
+  ports:
+  - name: http
+    port: ${SERVICE_PORT}
+    targetPort: ${CONTAINER_PORT}
+    protocol: TCP
+EOF
+                        fi
+                        
+                        # 생성된 매니페스트 확인
+                        echo "=== 생성된 Kubernetes manifests ==="
+                        find k8s/ -name "*.yaml" | while read file; do
+                            echo "--- \$file ---"
+                            head -10 "\$file"
+                        done
+                    """
+                }
+            }
+        }
+        
+        stage('Deploy to Kubernetes') {
+            steps {
+                withCredentials([
+                    file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG'),
+                    string(credentialsId: "${OPENAI_API_KEY_ID}", variable: 'OPENAI_API_KEY'),
+                    string(credentialsId: "${DB_PASSWORD_ID}", variable: 'DB_PASSWORD'),
+                    string(credentialsId: "${ES_HOST_ID}", variable: 'ES_HOST')
+                ]) {
+                    script {
+                        echo "Deploying AI Agent System to Kubernetes cluster..."
+                        
+                        sh """
+                            export KUBECONFIG=\$KUBECONFIG
+                            
+                            # 네임스페이스 생성 (없는 경우)
+                            kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+                            
+                            # Secret에 실제 값 주입하여 재생성
+                            if [ -f "k8s/secret.yaml" ]; then
+                                echo "Creating Secret with actual values from Jenkins Credentials..."
+                                
+                                # kubectl을 사용해 Secret 직접 생성 (안전한 방법)
+                                kubectl create secret generic ai-agent-secret \\
+                                    --from-literal=OPENAI_API_KEY="\${OPENAI_API_KEY}" \\
+                                    --from-literal=DB_PASSWORD="\${DB_PASSWORD}" \\
+                                    --from-literal=ES_HOST="\${ES_HOST}" \\
+                                    --namespace=${NAMESPACE} \\
+                                    --dry-run=client -o yaml | kubectl apply -f -
+                            fi
+                            
+                            # ConfigMap 먼저 적용
+                            if [ -f "k8s/configmap.yaml" ]; then
+                                kubectl apply -f k8s/configmap.yaml
+                            fi
+                            
+                            # 나머지 Kubernetes manifests 적용 (Secret 제외)
+                            find k8s/ -name "*.yaml" ! -name "secret.yaml" | xargs kubectl apply -f
+                            
+                            # 배포 상태 확인
+                            echo "=== AI Agent System 배포 상태 확인 ==="
+                            kubectl get all -n ${NAMESPACE}
+                            
+                            # ConfigMap과 Secret 확인
+                            kubectl get configmap -n ${NAMESPACE}
+                            kubectl get secret -n ${NAMESPACE}
+                            
+                            # 롤아웃 상태 대기 (ML-Backend와 동일한 방식)
+                            kubectl rollout status deployment/${DEPLOYMENT_NAME} -n ${NAMESPACE} --timeout=600s
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Health Check & Validation') {
+            steps {
+                withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIALS_ID}", variable: 'KUBECONFIG')]) {
+                    script {
+                        echo "Performing AI Agent System health check and validation..."
+                        
+                        sh """
+                            export KUBECONFIG=\$KUBECONFIG
+                            
+                            # Pod 상태 상세 확인
+                            echo "=== AI Agent System Pod 상태 ==="
+                            kubectl get pods -l app=${DEPLOYMENT_NAME} -n ${NAMESPACE} -o wide
+                            kubectl describe pods -l app=${DEPLOYMENT_NAME} -n ${NAMESPACE}
+                            
+                            # 서비스 엔드포인트 확인
+                            echo "=== AI Agent System 서비스 정보 ==="
+                            kubectl get svc ${DEPLOYMENT_NAME} -n ${NAMESPACE} -o wide || echo "Service not found"
+                            
+                            # ConfigMap과 Secret 마운트 확인
+                            echo "=== ConfigMap과 Secret 확인 ==="
+                            kubectl get configmap ai-agent-config -n ${NAMESPACE} || echo "ConfigMap not found"
+                            kubectl get secret ai-agent-secret -n ${NAMESPACE} || echo "Secret not found"
+                            
+                            # 애플리케이션 로그 확인 (최근 100줄)
+                            echo "=== AI Agent System 로그 (최근 100줄) ==="
+                            kubectl logs -l app=${DEPLOYMENT_NAME} -n ${NAMESPACE} --tail=100 || echo "No logs available"
+                            
+                            # 애플리케이션 Health Check
+                            echo "=== AI Agent System Health Check ==="
+                            POD_NAME=\$(kubectl get pods -l app=${DEPLOYMENT_NAME} -n ${NAMESPACE} -o jsonpath='{.items[0].metadata.name}')
+                            if [ ! -z "\$POD_NAME" ]; then
+                                echo "Testing pod: \$POD_NAME"
+                                kubectl exec \$POD_NAME -n ${NAMESPACE} -- curl -f http://localhost:${CONTAINER_PORT}/health || \\
+                                kubectl exec \$POD_NAME -n ${NAMESPACE} -- curl -f http://localhost:${CONTAINER_PORT}/docs || \\
+                                kubectl exec \$POD_NAME -n ${NAMESPACE} -- curl -f http://localhost:${CONTAINER_PORT}/ || \\
+                                echo "Health check endpoints not available"
+                            fi
+                            
+                            # 리소스 사용량 확인
+                            echo "=== 리소스 사용량 ==="
+                            kubectl top pods -n ${NAMESPACE} || echo "Metrics not available"
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Cleanup Local Images') {
+            steps {
+                script {
+                    echo "Cleaning up local Docker images..."
+                    sh """
+                        # 로컬 이미지 정리 (에러 무시)
+                        docker rmi ${DOCKER_IMAGE}:${BUILD_NUMBER} || true
+                        docker rmi ${DOCKER_IMAGE}:latest || true
+                        
+                        # 사용하지 않는 이미지 정리
+                        docker image prune -f || true
+                        
+                        # 남은 이미지 확인
+                        echo "=== 남은 Docker 이미지 ==="
+                        docker images | head -10
+                        
+                        # 디스크 사용량 확인
+                        echo "=== 디스크 사용량 ==="
+                        df -h
+                    """
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            script {
+                // Docker 로그아웃
+                sh 'docker logout || true'
+                
+                // 빌드 결과 아카이브 (K8s manifests 포함)
+                archiveArtifacts artifacts: 'k8s/**/*.yaml, kubernetes/**/*.yaml', allowEmptyArchive: true
+                
+                // 워크스페이스 정리
+                sh 'ls -la'
+            }
+        }
+        
+        success {
+            echo """
+            🎉 AI Agent System 배포 파이프라인 성공!
+            
+            ✅ 빌드 번호: ${BUILD_NUMBER}
+            ✅ Docker 이미지: ${DOCKER_IMAGE}:${BUILD_NUMBER}
+            ✅ 배포 네임스페이스: ${NAMESPACE}
+            ✅ 배포 시간: ${new Date()}
+            ✅ GitHub 저장소: ${GITHUB_REPO}
+            ✅ 애플리케이션 포트: ${CONTAINER_PORT}
+            
+            AI Agent System이 성공적으로 빌드되고 Kubernetes에 배포되었습니다!
+            """
+        }
+        
+        failure {
+            echo """
+            ❌ AI Agent System 배포 파이프라인 실패!
+            
+            실패한 빌드: ${BUILD_NUMBER}
+            실패 시간: ${new Date()}
+            GitHub 저장소: ${GITHUB_REPO}
+            네임스페이스: ${NAMESPACE}
+            
+            로그를 확인하여 문제를 해결하세요.
+            kubectl logs -l app=${DEPLOYMENT_NAME} -n ${NAMESPACE}
+            """
+        }
+        
+        unstable {
+            echo "⚠️ AI Agent System 파이프라인이 불안정한 상태로 완료되었습니다. 테스트 결과를 확인하세요."
+        }
+    }
+}
