@@ -9,6 +9,8 @@
 **청약핏**은 복잡한 주택청약 특별공급 정보를 쉽고 빠르게 제공하는 AI 기반 맞춤형 플랫폼입니다.  
 기존 플랫폼이 제공하지 못한 ‘청약 자격유형 자동 판별’,‘맞춤 대출 추천’, ‘AI 챗봇 상담을 통한 공고문 이해’를 통해 청약 경험이 부족한 사용자도 효율적으로 정보에 접근할 수 있게 돕습니다.
 
+![Image](https://github.com/user-attachments/assets/f66c73d7-2210-47a6-8411-4000065bbb3d)
+
 ---
 
 ## 🧩 주요 기능
@@ -34,6 +36,8 @@
 ---
 
 ## ⚙️ 시스템 아키텍처 및 구현 요약
+
+![Image](https://github.com/user-attachments/assets/49a0e1ac-c68d-4714-8a48-e88b8b5774f1)
 
 ### 📑 데이터 파이프라인
 
@@ -91,8 +95,8 @@
 | 정명희   | 팀장      | 대출 추천 시스템 구축 |
 | 박재림   | 팀원      | AI 모델 테스트, 인프라 구축, Airflow-DB 연동, CI/CD |
 | 이태민   | 팀원      | DB 설계, 데이터 파이프라인 구축, CI/CD |
-| 주정우   | 팀원      | React Agent 구현, 공고문 파싱 |
-| 차민재   | 팀원      | RAG 기반 AI 모델 설계·구현, LangGraph·ReAct Agent, 파싱 |
+| 주정우   | 팀원      | LLM 챗봇 Fast API 연동, Spring 로그인/DB 연동 |
+| 차민재   | 팀원      | 공고문 파싱, RAG 기반 AI 모델 설계·구현, LangGraph·ReAct Agent 구현 |
 
 ---
 
@@ -138,7 +142,7 @@
 ## ML-Backend
 **Chatbot**
 
-<img src="https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=Flask&logoColor=white"> ![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white) ![RAG](https://img.shields.io/badge/RAG-FF6B6B?style=for-the-badge&logo=opensearch&logoColor=white) ![React Agent](https://img.shields.io/badge/React_Agent-61DAFB?style=for-the-badge&logo=react&logoColor=black) ![LangGraph](https://img.shields.io/badge/LangGraph-FF4B4B?style=for-the-badge&logo=neo4j&logoColor=white) ![Reranker](https://img.shields.io/badge/Reranker-4CAF50?style=for-the-badge&logo=elasticsearch&logoColor=white)
+![FastAPI](https://img.shields.io/badge/fastapi-009688.svg?&style=for-the-badge&logo=fastapi&logoColor=white)  ![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white) ![RAG](https://img.shields.io/badge/RAG-FF6B6B?style=for-the-badge&logo=opensearch&logoColor=white) ![React Agent](https://img.shields.io/badge/React_Agent-61DAFB?style=for-the-badge&logo=react&logoColor=black) ![LangGraph](https://img.shields.io/badge/LangGraph-FF4B4B?style=for-the-badge&logo=neo4j&logoColor=white) ![Reranker](https://img.shields.io/badge/Reranker-4CAF50?style=for-the-badge&logo=elasticsearch&logoColor=white)
 
 **Data Preprocessing**
 
