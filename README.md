@@ -70,6 +70,9 @@
 > “일도 바쁘고 육아도 하느라 공고 볼 시간이 없어.”  
 > “월 납입 금액 정도는 미리 알고 싶다.”
 
+### 📹 시연 영상 보러가기
+[페르소나 기반 시연 영상 보러가기](https://www.youtube.com/watch?v=VIV1HL572ns)
+
 ---
 
 ## 🎯 기대 효과
@@ -146,8 +149,7 @@
 
 **Data Preprocessing**
 
- ![Apache Airflow](https://img.shields.io/badge/Apache_Airflow-017CEE?style=for-the-badge&logo=apacheairflow&logoColor=white) ![OpenParser](https://img.shields.io/badge/OpenParser-FF8C00?style=for-the-badge&logo=json&logoColor=white) ![Upstage](https://img.shields.io/badge/Upstage-6B73FF?style=for-the-badge&logo=tensorflow&logoColor=white) ![DataPipeline](https://img.shields.io/badge/Data_Pipeline-2E8B57?style=for-the-badge&logo=apache&logoColor=white)
-
+ ![Apache Airflow](https://img.shields.io/badge/Apache_Airflow-017CEE?style=for-the-badge&logo=apacheairflow&logoColor=white) ![OpenParser](https://img.shields.io/badge/OpenParser-FF8C00?style=for-the-badge&logo=json&logoColor=white) ![Upstage](https://img.shields.io/badge/Upstage-6B73FF?style=for-the-badge&logo=tensorflow&logoColor=white) ![Elasticsearch](https://img.shields.io/badge/elasticsearch-005571.svg?&style=for-the-badge&logo=elasticsearch&logoColor=white)  ![MySQL](https://img.shields.io/badge/mysql-4479A1.svg?&style=for-the-badge&logo=mysql&logoColor=white) 
 ## Infra
 **Monitoring**
 
