@@ -98,7 +98,7 @@
 | 정명희   | 팀장      | 대출 추천 시스템 구축 |
 | 박재림   | 팀원      | AI 모델 테스트, 인프라 구축, Airflow-DB 연동, CI/CD |
 | 이태민   | 팀원      | DB 설계, 데이터 파이프라인 구축, CI/CD |
-| 주정우   | 팀원      | LLM 챗봇 Fast API 연동, Spring 로그인/DB 연동 |
+| 주정우   | 팀원      | Spring 백엔드 개발 및 운영, DB 연동, LLM 챗봇 Fast API 연동 |
 | 차민재   | 팀원      | 공고문 파싱, RAG 기반 AI 모델 설계·구현, LangGraph·ReAct Agent 구현 |
 
 ---
