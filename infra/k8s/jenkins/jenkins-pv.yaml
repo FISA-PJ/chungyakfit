@@ -1,0 +1,13 @@
+# Jenkins PersistentVolumeClaim - 데이터 보존용
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: jenkins-pvc
+  namespace: jenkins
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: gp2  # AWS EBS gp2
