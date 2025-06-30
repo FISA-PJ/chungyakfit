@@ -1,0 +1,131 @@
+# Backend Deployment - Prometheus 메트릭 수집 어노테이션 추가
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: backend
+  labels:
+    app: backend
+    version: v1
+spec:
+  replicas: 1
+  
+  selector:
+    matchLabels:
+      app: backend
+      
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+      
+  template:
+    metadata:
+      labels:
+        app: backend
+        version: v1
+      # Prometheus 메트릭 수집 어노테이션 추가
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      containers:
+      - name: backend
+        image: jaerimw/spring-backend:latest
+        imagePullPolicy: Always
+        
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+          
+        # ConfigMap에서 환경변수 가져오기
+        envFrom:
+        - configMapRef:
+            name: backend-config
+            
+        env:
+        # Secret에서 민감한 정보 가져오기
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: db-username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: backend-secret
+              key: db-password
+        # Spring Boot 설정 파일 경로 명시
+        - name: SPRING_CONFIG_LOCATION
+          value: "classpath:/application.properties,file:/app/config/application.properties"
+        # 명시적으로 management 포트 설정
+        - name: MANAGEMENT_SERVER_PORT
+          value: "8080"
+        - name: MANAGEMENT_ENDPOINTS_WEB_BASE_PATH
+          value: "/actuator"
+        # Prometheus 메트릭 활성화
+        - name: MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE
+          value: "health,info,metrics,prometheus"
+        - name: MANAGEMENT_ENDPOINT_PROMETHEUS_ENABLED
+          value: "true"
+          
+        # 볼륨 마운트
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+          
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+            
+        # 시작업 프로브 - Spring Boot 완전 시작까지 대기
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 60    # 60초 후 시작
+          periodSeconds: 10          # 10초마다 체크
+          timeoutSeconds: 5          # 5초 타임아웃
+          failureThreshold: 30       # 30번 실패까지 허용 (총 5분)
+          successThreshold: 1
+          
+        # 라이브니스 프로브 - 시작업 프로브 성공 후 활성화
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 0     # 시작업 프로브 성공 후 즉시 시작
+          periodSeconds: 30          # 30초마다 체크
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+          
+        # 레디니스 프로브 - 트래픽 받을 준비 확인
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 0     # 시작업 프로브 성공 후 즉시 시작
+          periodSeconds: 10          # 10초마다 체크
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+          
+      volumes:
+      - name: config
+        configMap:
+          name: backend-config
+          items:
+          - key: application.properties
+            path: application.properties

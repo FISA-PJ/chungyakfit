@@ -1,0 +1,18 @@
+# ML-Backend 네임스페이스
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ml-backend
+  labels:
+    name: ml-backend
+    environment: production
+    
+---
+# Backend 네임스페이스
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: backend
+  labels:
+    name: backend
+    environment: production

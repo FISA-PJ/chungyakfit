@@ -1,0 +1,45 @@
+## ML-Backend ConfigMap
+#apiVersion: v1
+#kind: ConfigMap
+#metadata:
+#  name: ml-backend-config
+#  namespace: ml-backend  # ml-backend 네임스페이스 사용
+#data:
+#  # 데이터베이스 설정 (RDS 엔드포인트로 변경 필요)
+#  DATABASE_HOST: "your-rds-endpoint.ap-northeast-2.rds.amazonaws.com"
+#  DATABASE_PORT: "3306"
+#  DATABASE_NAME: "ml_database"
+#  
+#  # Elasticsearch 설정 (airflow 네임스페이스의 ES와 통신)
+#  ELASTICSEARCH_HOST: "elasticsearch.airflow.svc.cluster.local"
+#  ELASTICSEARCH_PORT: "9200"
+#  
+#  # 애플리케이션 설정
+#  APP_ENV: "production"
+#  LOG_LEVEL: "INFO"
+#  PYTHONUNBUFFERED: "1"
+
+# ML-Backend ConfigMap - 일반적인 설정들
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ml-backend-config
+  namespace: ml-backend
+data:
+  # Elasticsearch Host
+  ES_HOST: "https://team3es.ap.loclx.io"
+  
+  # 데이터베이스 설정 (비밀번호 제외)
+  DB_HOST: "database-1.c5mygaasq9hj.ap-northeast-2.rds.amazonaws.com"
+  DB_PORT: "3306"
+  DB_USER: "app_user"
+  
+  # 데이터베이스 이름들
+  APP_DB: "app_db"
+  LOAN_DB: "housing_loan"
+  NOTICE_DB: "notice_db"
+  
+  # Flask 설정
+  FLASK_ENV: "production"
+  FLASK_DEBUG: "False"
+  PORT: "5000"

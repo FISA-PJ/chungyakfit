@@ -1,0 +1,41 @@
+## ML-Backend Service
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: ml-backend
+#  namespace: ml-backend  # ml-backend 네임스페이스
+#  labels:
+#    app: ml-backend
+#spec:
+#  # 서비스 타입 - 클러스터 내부 통신용
+#  type: ClusterIP
+#  
+#  # 파드 선택자
+#  selector:
+#    app: ml-backend
+#    
+#  # 포트 매핑
+#  ports:
+#  - name: http
+#    port: 80        # 서비스 포트
+#    targetPort: 8000  # 컨테이너 포트
+#    protocol: TCP
+
+
+# ML-Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-backend
+  namespace: ml-backend
+  labels:
+    app: ml-backend
+spec:
+  type: ClusterIP  # 내부 통신용
+  selector:
+    app: ml-backend
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8000
+    protocol: TCP

@@ -1,0 +1,200 @@
+pipeline {
+    agent any
+    
+    environment {
+        // GitHub 리포지토리 설정
+        GITHUB_CREDENTIALS_ID = 'github-token'
+        GITHUB_REPO = 'https://github.com/FISA-PJ/SpringBackEnd.git'
+        GITHUB_BRANCH = 'main'
+        
+        // Airflow 서버 설정 (완전 분리)
+        AIRFLOW_HOST_ID = 'airflow-host'           // ap.loclx.io
+        AIRFLOW_USER_ID = 'airflow-user'           // ubuntu
+        AIRFLOW_PORT_ID = 'airflow-port'           // 22223
+        SSH_KEY_ID = 'airflow-ssh-key'             // Airflow 서버 SSH 키
+        
+        // 배포 경로 설정
+        LOCAL_DAG_DIR = 'airflow/dags/'            // 로컬 DAG 디렉토리
+        REMOTE_DAG_PATH_ID = 'airflow-dags-path'   // 원격 DAG 경로
+    }
+    
+    triggers {
+        githubPush()  // GitHub push 시 자동 트리거
+    }
+    
+    stages {
+        stage('Checkout DAGs') {
+            steps {
+                script {
+                    echo "Checking out DAGs from GitHub..."
+                    
+                    // GitHub에서 DAG 코드 체크아웃
+                    git branch: "${GITHUB_BRANCH}", 
+                        url: "${GITHUB_REPO}",
+                        credentialsId: "${GITHUB_CREDENTIALS_ID}"
+                    
+                    // DAG 디렉토리 존재 확인
+                    sh """
+                        if [ -d "${LOCAL_DAG_DIR}" ]; then
+                            echo "DAG 디렉토리 발견: ${LOCAL_DAG_DIR}"
+                            ls -la ${LOCAL_DAG_DIR}
+                        else
+                            echo "⚠️  DAG 디렉토리가 없습니다: ${LOCAL_DAG_DIR}"
+                            mkdir -p ${LOCAL_DAG_DIR}
+                        fi
+                    """
+                }
+            }
+        }
+        
+        stage('Validate DAG Files') {
+            steps {
+                script {
+                    echo "DAG 파일 검증 중..."
+                    
+                    // Python 문법 검사 (선택사항)
+                    sh """
+                        # DAG 파일들의 Python 문법 검사
+                        find ${LOCAL_DAG_DIR} -name "*.py" -type f | while read file; do
+                            echo "Checking syntax: \$file"
+                            python3 -m py_compile "\$file" || echo "⚠️  Syntax error in \$file"
+                        done
+                    """
+                }
+            }
+        }
+        
+        stage('Deploy DAGs to Airflow Server') {
+            steps {
+                withCredentials([
+                    string(credentialsId: "${AIRFLOW_HOST_ID}", variable: 'AIRFLOW_HOST'),
+                    string(credentialsId: "${AIRFLOW_USER_ID}", variable: 'AIRFLOW_USER'),
+                    string(credentialsId: "${AIRFLOW_PORT_ID}", variable: 'AIRFLOW_PORT'),
+                    string(credentialsId: "${REMOTE_DAG_PATH_ID}", variable: 'REMOTE_DAG_PATH')
+                ]) {
+                    sshagent(credentials: ["${SSH_KEY_ID}"]) {
+                        script {
+                            echo "Deploying DAGs to Airflow server: ${AIRFLOW_USER}@${AIRFLOW_HOST}:${AIRFLOW_PORT}"
+                            echo "Target path: ${REMOTE_DAG_PATH}"
+                            
+                            // 재시도 로직을 포함한 배포
+                            def maxRetries = 3
+                            def deploySuccess = false
+                            
+                            for (int i = 0; i < maxRetries && !deploySuccess; i++) {
+                                try {
+                                    echo "배포 시도 ${i + 1}/${maxRetries}..."
+                                    
+                                    timeout(time: 5, unit: 'MINUTES') {
+                                        sh """
+                                            # SSH 연결 테스트 (분리된 변수 사용)
+                                            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p \${AIRFLOW_PORT} \${AIRFLOW_USER}@\${AIRFLOW_HOST} 'echo "SSH 연결 성공"'
+                                            
+                                            # 원격 디렉토리 생성 (없는 경우)
+                                            ssh -o StrictHostKeyChecking=no -p \${AIRFLOW_PORT} \${AIRFLOW_USER}@\${AIRFLOW_HOST} 'mkdir -p \${REMOTE_DAG_PATH}'
+                                            
+                                            # DAG 파일들을 Airflow 서버로 복사 (분리된 변수 사용)
+                                            rsync -avz --delete \\
+                                                -e 'ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -p \${AIRFLOW_PORT}' \\
+                                                \${LOCAL_DAG_DIR} \\
+                                                \${AIRFLOW_USER}@\${AIRFLOW_HOST}:\${REMOTE_DAG_PATH}/
+                                            
+                                            # 배포 결과 확인
+                                            ssh -o StrictHostKeyChecking=no -p \${AIRFLOW_PORT} \${AIRFLOW_USER}@\${AIRFLOW_HOST} \\
+                                                'ls -la \${REMOTE_DAG_PATH} && echo "배포된 DAG 파일 수: \$(find \${REMOTE_DAG_PATH} -name "*.py" | wc -l)"'
+                                        """
+                                    }
+                                    
+                                    deploySuccess = true
+                                    echo "✅ DAG 배포 성공!"
+                                    
+                                } catch (Exception e) {
+                                    echo "❌ 배포 시도 ${i + 1} 실패: ${e.getMessage()}"
+                                    if (i < maxRetries - 1) {
+                                        echo "30초 대기 후 재시도..."
+                                        sleep(30)
+                                    } else {
+                                        error("DAG 배포가 ${maxRetries}번 모두 실패했습니다.")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Restart Airflow (Optional)') {
+            steps {
+                withCredentials([
+                    string(credentialsId: "${AIRFLOW_HOST_ID}", variable: 'AIRFLOW_HOST'),
+                    string(credentialsId: "${AIRFLOW_USER_ID}", variable: 'AIRFLOW_USER'),
+                    string(credentialsId: "${AIRFLOW_PORT_ID}", variable: 'AIRFLOW_PORT')
+                ]) {
+                    sshagent(credentials: ["${SSH_KEY_ID}"]) {
+                        script {
+                            echo "Airflow 서비스 재시작 (선택사항)..."
+                            
+                            try {
+                                timeout(time: 2, unit: 'MINUTES') {
+                                    sh """
+                                        ssh -o StrictHostKeyChecking=no -p \${AIRFLOW_PORT} \${AIRFLOW_USER}@\${AIRFLOW_HOST} '
+                                            # Docker Compose 사용 시 Airflow 재시작
+                                            cd /mnt/d/team3/ml-backend-fastapi/airflow
+                                            
+                                            # Docker 컨테이너 재시작 (실제 구성에 맞게 수정)
+                                            docker-compose restart webserver scheduler || echo "Docker restart failed"
+                                            
+                                            # 또는 systemd 사용 시 (주석 해제)
+                                            # sudo systemctl restart airflow-webserver || echo "Webserver restart failed"
+                                            # sudo systemctl restart airflow-scheduler || echo "Scheduler restart failed"
+                                            
+                                            echo "Airflow 재시작 완료"
+                                        '
+                                    """
+                                }
+                            } catch (Exception e) {
+                                echo "⚠️  Airflow 재시작 실패 (무시하고 계속): ${e.getMessage()}"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            script {
+                // 워크스페이스 정리
+                sh 'ls -la'
+                
+                // 빌드 결과 아카이브
+                archiveArtifacts artifacts: "${LOCAL_DAG_DIR}**/*.py", allowEmptyArchive: true
+            }
+        }
+        
+        success {
+            echo """
+            🎉 DAG 배포 파이프라인 성공!
+            
+            ✅ 배포된 디렉토리: ${LOCAL_DAG_DIR}
+            ✅ 대상 서버: WSL2 Airflow Server  
+            ✅ 배포 시간: ${new Date()}
+            
+            DAG 파일들이 WSL2 Airflow 서버에 성공적으로 배포되었습니다.
+            """
+        }
+        
+        failure {
+            echo """
+            ❌ DAG 배포 파이프라인 실패!
+            
+            실패한 빌드: ${BUILD_NUMBER}
+            실패 시간: ${new Date()}
+            
+            로그를 확인하여 문제를 해결하세요.
+            """
+        }
+    }
+}

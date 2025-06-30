@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-config
+  namespace: monitoring
+data:
+  fluent.conf: |
+    # 간단한 Fluentd 설정 (Kubernetes API 문제 해결)
+    
+    # Kubernetes 컨테이너 로그 수집
+    <source>
+      @type tail
+      @id in_tail_container_logs
+      path /var/log/containers/*.log
+      pos_file /var/log/fluentd-containers.log.pos
+      tag raw.kubernetes.*
+      read_from_head true
+      <parse>
+        @type multi_format
+        <pattern>
+          format json
+          time_key time
+          time_format %Y-%m-%dT%H:%M:%S.%NZ
+        </pattern>
+        <pattern>
+          format /^(?<time>.+) (?<stream>stdout|stderr) [^ ]* (?<log>.*)$/
+          time_format %Y-%m-%dT%H:%M:%S.%N%:z
+        </pattern>
+      </parse>
+    </source>
+
+    # Kubernetes 메타데이터 필터 (수정된 설정)
+    <filter raw.kubernetes.**>
+      @type kubernetes_metadata
+      @id filter_kube_metadata
+      kubernetes_url "https://#{ENV['KUBERNETES_SERVICE_HOST']}:#{ENV['KUBERNETES_SERVICE_PORT_HTTPS']}"
+      verify_ssl true
+      ca_file /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file /var/run/secrets/kubernetes.io/serviceaccount/token
+      skip_labels false
+      skip_container_metadata false
+      skip_master_url false
+      skip_namespace_metadata false
+    </filter>
+
+    # Backend/ML-Backend 로그만 필터링
+    <filter raw.kubernetes.**>
+      @type grep
+      <regexp>
+        key $.kubernetes.namespace_name
+        pattern ^(backend|ml-backend|ai-agent)$
+      </regexp>
+    </filter>
+
+    # Elasticsearch로 전송 (간단한 설정)
+    <match raw.kubernetes.**>
+      @type elasticsearch
+      @id out_es
+      host elasticsearch.monitoring.svc.cluster.local
+      port 9200
+      logstash_format true
+      logstash_prefix backend-logs
+      logstash_dateformat %Y.%m.%d
+      include_timestamp true
+      reload_connections false
+      reconnect_on_error true
+      reload_on_failure true
+      log_es_400_reason false
+      suppress_type_name true
+      request_timeout 30s
+      <buffer>
+        @type file
+        path /var/log/fluentd-buffers/kubernetes.system.buffer
+        flush_mode interval
+        retry_type exponential_backoff
+        flush_thread_count 1
+        flush_interval 30s
+        retry_forever
+        retry_max_interval 30
+        chunk_limit_size 1M
+        queue_limit_length 4
+        overflow_action block
+      </buffer>
+    </match>

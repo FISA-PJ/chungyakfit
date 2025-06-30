@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kibana-config
+  namespace: monitoring
+data:
+  kibana.yml: |
+    server.name: kibana
+    server.host: "0"
+    elasticsearch.hosts: ["http://elasticsearch:9200"]
+    
+    # 올바른 로깅 설정 (7.17.0 버전용)
+    logging:
+      appenders:
+        default:
+          type: console
+          layout:
+            type: json
+      root:
+        level: warn
+    
+    # 기본 설정
+    kibana.defaultAppId: "discover"

@@ -1,0 +1,43 @@
+{
+    "nodegroup": {
+        "nodegroupName": "eks-node-xlarge",
+        "nodegroupArn": "arn:aws:eks:ap-northeast-2:201466974287:nodegroup/team3-eks-cluster/eks-node-xlarge/8ecbaa6c-718c-626d-c85d-625a25c2b7cf",
+        "clusterName": "team3-eks-cluster",
+        "version": "1.32",
+        "releaseVersion": "1.32.3-20250519",
+        "createdAt": "2025-06-09T22:19:52.034000+09:00",
+        "modifiedAt": "2025-06-09T22:19:52.034000+09:00",
+        "status": "CREATING",
+        "capacityType": "ON_DEMAND",
+        "scalingConfig": {
+            "minSize": 1,
+            "maxSize": 3,
+            "desiredSize": 2
+        },
+        "instanceTypes": [
+            "t3.xlarge"
+        ],
+        "subnets": [
+            "subnet-0147253ce0db1f577",
+            "subnet-004469ae35efc3501",
+            "subnet-0eb5af928e3a24d86",
+            "subnet-0161fd1cea143f965"
+        ],
+        "remoteAccess": {
+            "ec2SshKey": "ai-team3-key",
+            "sourceSecurityGroups": [
+                "sg-0b7ac15bd2d2a923b"
+            ]
+        },
+        "amiType": "AL2023_x86_64_STANDARD",
+        "nodeRole": "arn:aws:iam::201466974287:role/team3-ec",
+        "diskSize": 30,
+        "health": {
+            "issues": []
+        },
+        "updateConfig": {
+            "maxUnavailable": 1
+        },
+        "tags": {}
+    }
+}
